@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chhath Mahaparv 2026 - Ticket Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h2 { color: #b45309; }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 20px auto;
+    }
+    input {
+      width: 90%;
+      max-width: 400px;
+      padding: 14px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 13px 20px;
+      margin: 8px;
+      font-size: 16px;
+      border: 0;
+      border-radius: 6px;
+      background: #b45309;
+      color: white;
+    }
+    #result {
+      margin: 20px auto;
+      padding: 15px;
+      max-width: 400px;
+      font-weight: bold;
+      background: white;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Chhath Mahaparv 2026</h2>
+<h3>QR Ticket Verification</h3>
+
+<div id="reader"></div>
+
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="stopCamera()">Stop Camera</button>
+
+<p>Or enter the QR code manually:</p>
+<input id="ticketCode" placeholder="Enter ticket code">
+<br>
+<button onclick="manualVerify()">Verify Ticket</button>
+
+<div id="result">Ready to scan tickets.</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyaHQoHdW9Ff4aZQ5JogSPXsbruhp5lFr6PnKv6RGmg9w-uEZjTg3da3pbpS-dwdh8m/exec";
+
+let scanner = null;
+let busy = false;
+
+function showResult(message, color) {
+  const box = document.getElementById("result");
+  box.textContent = message;
+  box.style.color = color;
+}
+
+function verifyCode(code) {
+  if (busy) return;
+  code = String(code || "").trim();
+
+  if (!code) {
+    showResult("Please enter a ticket code.", "red");
+    return;
+  }
+
+  busy = true;
+  showResult("Checking ticket...", "#333");
+
+  const callbackName = "ticketCallback_" + Date.now();
+
+  window[callbackName] = function(data) {
+    if (data.status === "VALID") {
+      showResult("VALID TICKET: " + data.ticketId +
+        " — ENTRY ALLOWED", "green");
+    } else if (data.status === "USED") {
+      showResult("ALREADY USED: " + data.ticketId, "red");
+    } else {
+      showResult(data.message || "Ticket verification failed.", "red");
+    }
+
+    delete window[callbackName];
+    script.remove();
+    busy = false;
+  };
+
+  const script = document.createElement("script");
+  script.src = SCRIPT_URL +
+    "?action=verify&code=" + encodeURIComponent(code) +
+    "&callback=" + callbackName;
+
+  script.onerror = function() {
+    showResult("Connection error. Please try again.", "red");
+    delete window[callbackName];
+    script.remove();
+    busy = false;
+  };
+
+  document.body.appendChild(script);
+}
+
+function manualVerify() {
+  verifyCode(document.getElementById("ticketCode").value);
+}
+
+async function startCamera() {
+  try {
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Camera access is not supported here. Open the HTTPS website.");
+    }
+
+    scanner = new Html5Qrcode("reader");
+
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 230, height: 230 } },
+      function(decodedText) {
+        if (!busy) {
+          stopCamera();
+          verifyCode(decodedText);
+        }
+      }
+    );
+
+    showResult("Camera started. Scan a ticket QR code.", "green");
+
+  } catch (error) {
+    showResult("Camera error: " +
+      (error.message || String(error)), "red");
+  }
+}
+
+async function stopCamera() {
+  if (scanner && scanner.isScanning) {
+    await scanner.stop();
+    scanner.clear();
+  }
+}
+</script>
+
+</body>
+</html>
